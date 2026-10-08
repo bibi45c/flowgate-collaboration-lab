@@ -1,0 +1,61 @@
+name: Scoped development task
+description: One independently verifiable synthetic deliverable.
+title: "[task][lab] "
+body:
+  - type: markdown
+    attributes:
+      value: "Use synthetic data only. Follow CONTRIBUTING.md; this issue does not grant additional execution permissions."
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Outcome
+      description: Observable behavior and why it is needed.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and exclusions
+      description: Allowed implementation boundaries and deliberately excluded work.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Concrete outcomes that establish completion, including failure cases.
+    validations:
+      required: true
+  - type: textarea
+    id: verification
+    attributes:
+      label: Verification plan
+      description: Separate required pre-merge checks from approved post-merge acceptance. Use None for no post-merge step.
+    validations:
+      required: true
+  - type: input
+    id: owner
+    attributes:
+      label: Accountable human owner
+      description: One human responsible for task scope and acceptance; agents are execution roles.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and sequence
+      description: Related issues/contracts, merge order and revalidation owner, or None.
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risk and recovery
+      description: Contracts, state and failure impact; concrete recovery, or a reason no special recovery applies.
+    validations:
+      required: true
+  - type: textarea
+    id: approval
+    attributes:
+      label: Approval evidence if required
+      description: Link the approved version, scope and human decision. Pending approval means controlled implementation is blocked.

@@ -1,0 +1,61 @@
+name: Quality
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, edited, ready_for_review]
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+jobs:
+  metadata:
+    name: PR metadata
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+      - name: Validate current metadata with the base version of the guard
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LAB_REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: python scripts/check_pr_metadata.py --repo "$LAB_REPO" --number "$PR_NUMBER"
+  tests:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
+        with:
+          python-version: '3.13'
+      - name: Record tested source and integration candidate
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.sha }}
+        run: |
+          git rev-parse HEAD
+          printf 'head=%s\nbase=%s\n' "$HEAD_SHA" "$BASE_SHA"
+          git status --porcelain
+      - run: python -m unittest discover -s tests -v
+  quality:
+    name: Quality
+    needs: [metadata, tests]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require successful jobs, never skipped/failed prerequisites
+        env:
+          METADATA: ${{ needs.metadata.result }}
+          TESTS: ${{ needs.tests.result }}
+        run: |
+          test "$METADATA" = success
+          test "$TESTS" = success
