@@ -1,6 +1,15 @@
 """Toy tenant-key authorization fixture."""
 
 
-def authorize(key: dict, tenant: str) -> bool:
-    """Return whether this synthetic key belongs to the requested tenant."""
-    return key.get("tenant") == tenant
+def authorize(key: object, tenant: object) -> bool:
+    """Allow an active synthetic key using only built-in dict and str inputs."""
+    if type(key) is not dict or type(tenant) is not str or not tenant:
+        return False
+
+    key_tenant = key.get("tenant")
+    return (
+        type(key_tenant) is str
+        and bool(key_tenant)
+        and key_tenant == tenant
+        and key.get("revoked") is False
+    )

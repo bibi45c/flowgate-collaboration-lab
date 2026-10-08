@@ -3,11 +3,23 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 
 REPO = "bibi45c/flowgate-collaboration-lab"
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def emit_output(value, stream, limit):
+    """Keep remote exit status authoritative even on a strict legacy console."""
+    value = value[:limit]
+    try:
+        stream.write(value)
+    except UnicodeEncodeError:
+        encoding = getattr(stream, "encoding", None) or "utf-8"
+        escaped = value.encode(encoding, errors="backslashreplace").decode(encoding)
+        stream.write(escaped[:limit])
 
 
 def run(args):
@@ -16,9 +28,9 @@ def run(args):
     result = subprocess.run(["gh", *args], cwd=ROOT, env=environment, text=True, capture_output=True, encoding="utf-8")
     # Only public repository output is requested. Authentication/token commands
     # are deliberately not exposed by this coordinator.
-    print(result.stdout[:12000], end="")
+    emit_output(result.stdout, sys.stdout, 12000)
     if result.stderr:
-        print(result.stderr[:3500], file=sys.stderr, end="")
+        emit_output(result.stderr, sys.stderr, 3500)
     return result.returncode
 
 
@@ -31,7 +43,7 @@ def body_file(value):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=["create", "repo", "pins", "issue", "pr", "edit-pr", "checks", "view-pr", "protect", "protection", "merge", "update", "comment", "close", "view-issue", "runs"])
+    parser.add_argument("action", choices=["create", "repo", "pins", "issue", "pr", "edit-pr", "checks", "view-pr", "protect", "protection", "merge", "update", "comment", "close", "view-issue", "runs", "run-detail", "run-log-failed", "view-ref"])
     parser.add_argument("--number", type=int)
     parser.add_argument("--title")
     parser.add_argument("--body-file")
@@ -70,7 +82,9 @@ def main():
         endpoint = f"repos/{REPO}/branches/main/protection"
         if args.action == "protection":
             return run(["api", endpoint, "--jq", '{strict:.required_status_checks.strict,contexts:.required_status_checks.contexts,enforce_admins:.enforce_admins.enabled,review_count:.required_pull_request_reviews.required_approving_review_count}'])
-        payload = {"required_status_checks": {"strict": True, "contexts": ["Quality"]}, "enforce_admins": True, "required_pull_request_reviews": {"dismiss_stale_reviews": True, "require_code_owner_reviews": args.reviews == "on", "required_approving_review_count": 1 if args.reviews == "on" else 0}, "restrictions": None, "required_conversation_resolution": True, "allow_force_pushes": False, "allow_deletions": False}
+        reviews = ({"dismiss_stale_reviews": True, "require_code_owner_reviews": True,
+                    "required_approving_review_count": 1} if args.reviews == "on" else None)
+        payload = {"required_status_checks": {"strict": True, "contexts": ["Quality"]}, "enforce_admins": True, "required_pull_request_reviews": reviews, "restrictions": None, "required_conversation_resolution": True, "allow_force_pushes": False, "allow_deletions": False}
         local = ROOT / ".lab-local"
         local.mkdir(exist_ok=True)
         path = local / "protection-input.json"
@@ -78,13 +92,27 @@ def main():
         return run(["api", "--method", "PUT", endpoint, "--input", str(path), "--jq", '{strict:.required_status_checks.strict,contexts:.required_status_checks.contexts,enforce_admins:.enforce_admins.enabled,review_count:.required_pull_request_reviews.required_approving_review_count}'])
     if args.action == "merge":
         # Never bypass or disable checks. Settings experiments are explicit actions.
-        return run(["pr", "merge", str(args.number), "--repo", REPO, "--squash", "--subject", args.title])
+        if not args.head or not re.fullmatch(r"[0-9a-fA-F]{40}", args.head):
+            parser.error("Merge requires --head with the full reviewed commit SHA")
+        if not args.number or not args.title:
+            parser.error("Merge requires --number and the reviewed final --title")
+        return run(["pr", "merge", str(args.number), "--repo", REPO, "--squash", "--subject", args.title, "--match-head-commit", args.head])
     if args.action == "update":
         return run(["pr", "update-branch", str(args.number), "--repo", REPO])
     if args.action == "comment":
         return run(["issue", "comment", str(args.number), "--repo", REPO, "--body-file", body_file(args.body_file)])
     if args.action == "close":
         return run(["issue", "close", str(args.number), "--repo", REPO, "--reason", args.reason])
+    if args.action in {"run-detail", "run-log-failed"}:
+        if not args.number or args.number < 1:
+            parser.error("Run evidence requires a positive --number run ID")
+        command = ["run", "view", str(args.number), "--repo", REPO]
+        command += ["--json", "jobs,url,headSha,conclusion"] if args.action == "run-detail" else ["--log-failed"]
+        return run(command)
+    if args.action == "view-ref":
+        if not args.head or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_./-]*", args.head) or ".." in args.head:
+            parser.error("View-ref requires a concrete branch in --head")
+        return run(["api", f"repos/{REPO}/git/ref/heads/{args.head}", "--jq", ".object.sha"])
     return run(["run", "list", "--repo", REPO, "--limit", "8", "--json", "databaseId,event,headSha,status,conclusion,url"])
 
 

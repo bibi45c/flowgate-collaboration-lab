@@ -57,3 +57,43 @@ deployment are separate evidence layers.
 The coordinator must record actual configured required checks and protection
 settings when running experiments. The document does not assert any remote gate
 is active. Agent-only review cannot satisfy the normal human-review gate.
+
+## Guard version and controlled integration
+
+The metadata job executes the base commit's guard. The workflow supplies
+`LAB_EXPECTED_HEAD` and `LAB_EXPECTED_BASE`; the updated guard requires both full
+SHAs, compares the initial live PR, and rereads relevant metadata at the end.
+It rejects a changed head/base/title/body/state/version instead of attaching mixed
+evidence to an old event. Direct guard invocations must supply those environment
+values or `--expected-head` and `--expected-base`.
+
+During bootstrap, an older base guard ignores the new environment values and still
+performs its original checks. It does not provide the new version-consistency
+guarantee until the updated guard is on the base. No failure is skipped or converted
+to success. This compatibility path is not evidence that workflow self-modification
+is trusted: CODEOWNERS, non-author human review and their single-account limitations
+remain necessary and must be reported.
+
+The commit helper accepts only explicit files, checks existing staged scope before
+adding and again afterward, and refuses out-of-scope staged content without clearing
+it. Tests use an isolated repository and alternate index; they do not alter the lab
+index. The merge helper requires the full reviewed SHA and passes
+`--match-head-commit` to GitHub CLI. Pinning a head does not replace human approval,
+current-base checks or required protection settings.
+
+The lab commit helper refuses executable hooks at the effective `core.hooksPath`
+or default hooks directory before staging, including commit, ref-transaction and
+index-change hooks. It never disables or skips them; tasks requiring hooks use an
+approved normal workflow. It verifies the actual new parent and changed tree paths
+after committing. A failed postcondition preserves the actual commit/index for
+review, reports failure and forbids reporting success or pushing; it performs no
+reset/amend. This is a bounded single-writer helper, not a sandbox or race lock.
+
+Remote command output is bounded and safely escaped on an incompatible legacy
+console; the remote process return code remains authoritative. A printing failure
+must not be treated as a failed remote mutation and retried blindly. Experimental
+`--reviews off` sets required PR reviews to null; `on` restores one approval plus
+CODEOWNERS. Conversation resolution remains required in both modes. A blocked
+merge can have unresolved review conversations even when reviews are off; this
+does not establish a platform defect or prove that zero required approvals caused
+the block. Record actual gates and restore `on` as the final remote setting.
