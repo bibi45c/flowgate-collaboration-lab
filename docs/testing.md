@@ -80,3 +80,20 @@ it. Tests use an isolated repository and alternate index; they do not alter the 
 index. The merge helper requires the full reviewed SHA and passes
 `--match-head-commit` to GitHub CLI. Pinning a head does not replace human approval,
 current-base checks or required protection settings.
+
+The lab commit helper refuses executable hooks at the effective `core.hooksPath`
+or default hooks directory before staging, including commit, ref-transaction and
+index-change hooks. It never disables or skips them; tasks requiring hooks use an
+approved normal workflow. It verifies the actual new parent and changed tree paths
+after committing. A failed postcondition preserves the actual commit/index for
+review, reports failure and forbids reporting success or pushing; it performs no
+reset/amend. This is a bounded single-writer helper, not a sandbox or race lock.
+
+Remote command output is bounded and safely escaped on an incompatible legacy
+console; the remote process return code remains authoritative. A printing failure
+must not be treated as a failed remote mutation and retried blindly. Experimental
+`--reviews off` sets required PR reviews to null; `on` restores one approval plus
+CODEOWNERS. Conversation resolution remains required in both modes. A blocked
+merge can have unresolved review conversations even when reviews are off; this
+does not establish a platform defect or prove that zero required approvals caused
+the block. Record actual gates and restore `on` as the final remote setting.

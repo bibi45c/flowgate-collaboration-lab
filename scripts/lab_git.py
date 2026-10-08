@@ -1,5 +1,6 @@
 """Scoped Git coordinator for the lab and its own sibling worktrees."""
 import argparse
+import os
 from pathlib import Path
 import re
 import subprocess
@@ -7,6 +8,8 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[1]
 TASKS = ROOT.parent / "worktrees"
 REMOTE = "https://github.com/bibi45c/flowgate-collaboration-lab.git"
+COMMIT_HOOKS = ("pre-commit", "prepare-commit-msg", "commit-msg", "post-commit",
+                "post-rewrite", "reference-transaction", "post-index-change")
 
 
 def checkout(value=None):
@@ -56,17 +59,45 @@ def check_index_scope(path, allowed):
         raise ValueError("Refuse out-of-scope staged files: " + ", ".join(sorted(outside)))
 
 
+def refuse_commit_hooks(path):
+    configured = subprocess.run(
+        ["git", "-c", f"safe.directory={path.as_posix()}", "config", "--path", "--get", "core.hooksPath"],
+        cwd=path, text=True, encoding="utf-8", capture_output=True)
+    if configured.returncode not in (0, 1):
+        raise ValueError("Cannot inspect effective hook configuration; no files staged")
+    directory = (configured.stdout.rstrip("\r\n") if configured.returncode == 0
+                 else git(path, "rev-parse", "--git-path", "hooks"))
+    hooks = (path / directory).resolve()
+    active = [name for name in COMMIT_HOOKS
+              if (hooks / name).is_file() and os.access(hooks / name, os.X_OK)]
+    if active:
+        raise ValueError("Refuse effective commit hooks before staging: " + ", ".join(active)
+                         + "; retain the index and use a reviewed normal workflow without disabling hooks")
+
+
+def verify_commit_scope(path, previous_head, allowed):
+    head = git(path, "rev-parse", "HEAD")
+    parents = git(path, "rev-list", "--parents", "-n", "1", head).split()[1:]
+    changed = {name for name in git(path, "diff", "--name-only", "--no-renames", "-z", previous_head, head).split("\0") if name}
+    if parents != [previous_head] or changed - allowed:
+        raise ValueError("Commit postcondition failed; retain the actual commit and index for review. "
+                         "Do not report success or push; no reset/amend performed")
+    return head
+
+
 def commit_files(path, names, title):
     if not title:
         raise ValueError("Explicit title is required")
+    refuse_commit_hooks(path)
     allowed = explicit_files(path, names)
+    previous_head = git(path, "rev-parse", "HEAD")
     check_index_scope(path, allowed)
     git(path, "add", "--", *sorted(allowed))
     check_index_scope(path, allowed)
     git(path, "diff", "--cached", "--check")
     git(path, "diff", "--cached", "--stat")
     git(path, "commit", "-m", title)
-    return git(path, "rev-parse", "HEAD")
+    return verify_commit_scope(path, previous_head, allowed)
 
 
 def main():
@@ -81,6 +112,7 @@ def main():
     args = parser.parse_args()
     path = checkout(args.path)
     if args.action == "bootstrap":
+        refuse_commit_hooks(path)
         files = [".gitignore", "AGENTS.md", "README.md", "CLAUDE.md", "CONTRIBUTING.md", "lab", "tests", "scripts", "docs", ".agents", ".github"]
         git(path, "add", "--", *files)
         git(path, "diff", "--cached", "--check")

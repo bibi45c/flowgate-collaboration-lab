@@ -11,15 +11,26 @@ REPO = "bibi45c/flowgate-collaboration-lab"
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def emit_output(value, stream, limit):
+    """Keep remote exit status authoritative even on a strict legacy console."""
+    value = value[:limit]
+    try:
+        stream.write(value)
+    except UnicodeEncodeError:
+        encoding = getattr(stream, "encoding", None) or "utf-8"
+        escaped = value.encode(encoding, errors="backslashreplace").decode(encoding)
+        stream.write(escaped[:limit])
+
+
 def run(args):
     environment = os.environ.copy()
     environment.update({"GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "safe.directory", "GIT_CONFIG_VALUE_0": ROOT.as_posix()})
     result = subprocess.run(["gh", *args], cwd=ROOT, env=environment, text=True, capture_output=True, encoding="utf-8")
     # Only public repository output is requested. Authentication/token commands
     # are deliberately not exposed by this coordinator.
-    print(result.stdout[:12000], end="")
+    emit_output(result.stdout, sys.stdout, 12000)
     if result.stderr:
-        print(result.stderr[:3500], file=sys.stderr, end="")
+        emit_output(result.stderr, sys.stderr, 3500)
     return result.returncode
 
 
@@ -71,7 +82,9 @@ def main():
         endpoint = f"repos/{REPO}/branches/main/protection"
         if args.action == "protection":
             return run(["api", endpoint, "--jq", '{strict:.required_status_checks.strict,contexts:.required_status_checks.contexts,enforce_admins:.enforce_admins.enabled,review_count:.required_pull_request_reviews.required_approving_review_count}'])
-        payload = {"required_status_checks": {"strict": True, "contexts": ["Quality"]}, "enforce_admins": True, "required_pull_request_reviews": {"dismiss_stale_reviews": True, "require_code_owner_reviews": args.reviews == "on", "required_approving_review_count": 1 if args.reviews == "on" else 0}, "restrictions": None, "required_conversation_resolution": True, "allow_force_pushes": False, "allow_deletions": False}
+        reviews = ({"dismiss_stale_reviews": True, "require_code_owner_reviews": True,
+                    "required_approving_review_count": 1} if args.reviews == "on" else None)
+        payload = {"required_status_checks": {"strict": True, "contexts": ["Quality"]}, "enforce_admins": True, "required_pull_request_reviews": reviews, "restrictions": None, "required_conversation_resolution": True, "allow_force_pushes": False, "allow_deletions": False}
         local = ROOT / ".lab-local"
         local.mkdir(exist_ok=True)
         path = local / "protection-input.json"

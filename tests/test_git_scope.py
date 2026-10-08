@@ -103,6 +103,85 @@ class CommitScopeTests(unittest.TestCase):
             lab_git.commit_files(self.repo, ["inside.txt"], "fix(lab): scoped change")
         self.assert_real_index_unchanged()
 
+    def hook(self, name="pre-commit", directory=None):
+        directory = directory or self.repo / ".git" / "hooks"
+        directory.mkdir(parents=True, exist_ok=True)
+        hook = directory / name
+        hook.write_text("#!/bin/sh\nprintf ran > hook-ran\ngit add -- outside.txt\n", encoding="utf-8", newline="\n")
+        hook.chmod(0o755)
+        return hook
+
+    def test_real_pre_commit_injection_is_refused_before_staging(self):
+        self.change("inside.txt")
+        self.change("outside.txt")
+        self.hook()
+        before = self.alternate.read_bytes()
+        try:
+            lab_git.commit_files(self.repo, ["inside.txt"], "fix(lab): scoped hook case")
+        except ValueError as error:
+            self.assertIn("hook", str(error))
+        else:
+            paths = lab_git.git(self.repo, "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD")
+            self.fail(f"Effective hook was not refused; actual committed paths={paths!r}")
+        self.assertEqual(self.alternate.read_bytes(), before)
+        self.assertEqual(lab_git.git(self.repo, "rev-parse", "HEAD"), self.original_head)
+        self.assertFalse((self.repo / "hook-ran").exists())
+        self.assert_real_index_unchanged()
+
+    def test_configured_relative_hooks_path_is_effective(self):
+        custom = self.repo / "custom-hooks"
+        hook = self.hook(directory=custom)
+        lab_git.git(self.repo, "config", "core.hooksPath", "custom-hooks")
+        before = self.alternate.read_bytes()
+        with self.assertRaisesRegex(ValueError, "effective commit hooks"):
+            lab_git.commit_files(self.repo, ["inside.txt"], "fix(lab): configured hook case")
+        self.assertEqual(self.alternate.read_bytes(), before)
+        self.assertTrue(hook.exists())
+        self.assertEqual(lab_git.git(self.repo, "config", "--get", "core.hooksPath"), "custom-hooks")
+        self.assertFalse((self.repo / "hook-ran").exists())
+
+    def test_each_commit_hook_is_rejected_before_staging(self):
+        for name in lab_git.COMMIT_HOOKS:
+            with self.subTest(hook=name):
+                hook = self.hook(name)
+                before = self.alternate.read_bytes()
+                with self.assertRaisesRegex(ValueError, name):
+                    lab_git.commit_files(self.repo, ["inside.txt"], "fix(lab): effective hook case")
+                self.assertEqual(self.alternate.read_bytes(), before)
+                hook.unlink()
+        self.assertFalse((self.repo / "hook-ran").exists())
+        self.assert_real_index_unchanged()
+
+    def test_out_of_scope_actual_commit_is_not_reported_success_or_reset(self):
+        self.change("inside.txt")
+        self.change("outside.txt")
+        original = lab_git.git
+        def injected_git(path, *args):
+            if args[0] == "commit":
+                original(path, "add", "--", "outside.txt")
+            return original(path, *args)
+        with mock.patch.object(lab_git, "git", side_effect=injected_git):
+            with self.assertRaisesRegex(ValueError, "postcondition failed"):
+                lab_git.commit_files(self.repo, ["inside.txt"], "fix(lab): postcondition case")
+        self.assertNotEqual(original(self.repo, "rev-parse", "HEAD"), self.original_head)
+        paths = original(self.repo, "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD")
+        self.assertEqual(set(paths.splitlines()), {"inside.txt", "outside.txt"})
+        self.assert_real_index_unchanged()
+
+    def test_unexpected_actual_parent_is_not_reported_success(self):
+        self.change("inside.txt")
+        original = lab_git.git
+        def injected_git(path, *args):
+            result = original(path, *args)
+            if args[0] == "commit":
+                original(path, "commit", "--allow-empty", "-qm", "chore(lab): extra commit")
+            return result
+        with mock.patch.object(lab_git, "git", side_effect=injected_git):
+            with self.assertRaisesRegex(ValueError, "postcondition failed"):
+                lab_git.commit_files(self.repo, ["inside.txt"], "fix(lab): parent case")
+        self.assertEqual(original(self.repo, "rev-list", "--count", f"{self.original_head}..HEAD"), "2")
+        self.assert_real_index_unchanged()
+
 
 class RemoteCommandTests(unittest.TestCase):
     def invoke(self, *args):
