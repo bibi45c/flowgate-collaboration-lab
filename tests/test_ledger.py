@@ -18,6 +18,26 @@ class LedgerTests(unittest.TestCase):
         self.assertEqual(ledger.settle("synthetic-reservation-c", 3), 15)
         self.assertEqual(ledger.total, 15)
 
+    def test_interleaved_retries_preserve_unique_reservation_sum(self):
+        ledger = Ledger()
+        settlements = (
+            ("synthetic-reservation-a", 7),
+            ("synthetic-reservation-b", 5),
+            ("synthetic-reservation-c", 3),
+        )
+        current_total = 0
+        for reservation_id, amount in settlements:
+            current_total += amount
+            self.assertEqual(ledger.settle(reservation_id, amount), current_total)
+
+        self.assertEqual(ledger.settle("synthetic-reservation-a", 7), 15)
+        self.assertEqual(ledger.total, 15)
+        with self.assertRaises(ValueError):
+            ledger.settle("synthetic-reservation-a", 8)
+        self.assertEqual(ledger.total, 15)
+        self.assertEqual(ledger.settle("synthetic-reservation-a", 7), 15)
+        self.assertEqual(ledger.total, sum(amount for _, amount in settlements))
+
     def test_conflicting_retry_preserves_original_settlement(self):
         ledger = Ledger()
         ledger.settle("synthetic-reservation-a", 7)
