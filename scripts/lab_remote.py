@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import sys
 
@@ -31,7 +32,7 @@ def body_file(value):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=["create", "repo", "pins", "issue", "pr", "edit-pr", "checks", "view-pr", "protect", "protection", "merge", "update", "comment", "close", "view-issue", "runs"])
+    parser.add_argument("action", choices=["create", "repo", "pins", "issue", "pr", "edit-pr", "checks", "view-pr", "protect", "protection", "merge", "update", "comment", "close", "view-issue", "runs", "run-detail", "run-log-failed", "view-ref"])
     parser.add_argument("--number", type=int)
     parser.add_argument("--title")
     parser.add_argument("--body-file")
@@ -78,13 +79,27 @@ def main():
         return run(["api", "--method", "PUT", endpoint, "--input", str(path), "--jq", '{strict:.required_status_checks.strict,contexts:.required_status_checks.contexts,enforce_admins:.enforce_admins.enabled,review_count:.required_pull_request_reviews.required_approving_review_count}'])
     if args.action == "merge":
         # Never bypass or disable checks. Settings experiments are explicit actions.
-        return run(["pr", "merge", str(args.number), "--repo", REPO, "--squash", "--subject", args.title])
+        if not args.head or not re.fullmatch(r"[0-9a-fA-F]{40}", args.head):
+            parser.error("Merge requires --head with the full reviewed commit SHA")
+        if not args.number or not args.title:
+            parser.error("Merge requires --number and the reviewed final --title")
+        return run(["pr", "merge", str(args.number), "--repo", REPO, "--squash", "--subject", args.title, "--match-head-commit", args.head])
     if args.action == "update":
         return run(["pr", "update-branch", str(args.number), "--repo", REPO])
     if args.action == "comment":
         return run(["issue", "comment", str(args.number), "--repo", REPO, "--body-file", body_file(args.body_file)])
     if args.action == "close":
         return run(["issue", "close", str(args.number), "--repo", REPO, "--reason", args.reason])
+    if args.action in {"run-detail", "run-log-failed"}:
+        if not args.number or args.number < 1:
+            parser.error("Run evidence requires a positive --number run ID")
+        command = ["run", "view", str(args.number), "--repo", REPO]
+        command += ["--json", "jobs,url,headSha,conclusion"] if args.action == "run-detail" else ["--log-failed"]
+        return run(command)
+    if args.action == "view-ref":
+        if not args.head or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_./-]*", args.head) or ".." in args.head:
+            parser.error("View-ref requires a concrete branch in --head")
+        return run(["api", f"repos/{REPO}/git/ref/heads/{args.head}", "--jq", ".object.sha"])
     return run(["run", "list", "--repo", REPO, "--limit", "8", "--json", "databaseId,event,headSha,status,conclusion,url"])
 
 

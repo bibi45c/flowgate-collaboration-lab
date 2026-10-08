@@ -57,3 +57,26 @@ deployment are separate evidence layers.
 The coordinator must record actual configured required checks and protection
 settings when running experiments. The document does not assert any remote gate
 is active. Agent-only review cannot satisfy the normal human-review gate.
+
+## Guard version and controlled integration
+
+The metadata job executes the base commit's guard. The workflow supplies
+`LAB_EXPECTED_HEAD` and `LAB_EXPECTED_BASE`; the updated guard requires both full
+SHAs, compares the initial live PR, and rereads relevant metadata at the end.
+It rejects a changed head/base/title/body/state/version instead of attaching mixed
+evidence to an old event. Direct guard invocations must supply those environment
+values or `--expected-head` and `--expected-base`.
+
+During bootstrap, an older base guard ignores the new environment values and still
+performs its original checks. It does not provide the new version-consistency
+guarantee until the updated guard is on the base. No failure is skipped or converted
+to success. This compatibility path is not evidence that workflow self-modification
+is trusted: CODEOWNERS, non-author human review and their single-account limitations
+remain necessary and must be reported.
+
+The commit helper accepts only explicit files, checks existing staged scope before
+adding and again afterward, and refuses out-of-scope staged content without clearing
+it. Tests use an isolated repository and alternate index; they do not alter the lab
+index. The merge helper requires the full reviewed SHA and passes
+`--match-head-commit` to GitHub CLI. Pinning a head does not replace human approval,
+current-base checks or required protection settings.

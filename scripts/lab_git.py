@@ -1,6 +1,7 @@
 """Scoped Git coordinator for the lab and its own sibling worktrees."""
 import argparse
 from pathlib import Path
+import re
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -23,7 +24,49 @@ def git(path, *args):
         print(result.stderr[:2500], end="")
     if result.returncode:
         raise SystemExit(result.returncode)
-    return result.stdout.strip()
+    return result.stdout if "-z" in args else result.stdout.strip()
+
+
+def explicit_files(path, names):
+    if not names:
+        raise ValueError("Explicit files are required")
+    allowed = set()
+    for name in names:
+        normalized = name.replace("\\", "/")
+        if (not normalized or re.search(r"[:*?\[\]]", normalized)
+                or normalized.startswith(("/", "-"))
+                or any(part in {"", ".", ".."} for part in normalized.split("/"))):
+            raise ValueError("Use explicit repository-relative file paths, not Git pathspecs")
+        target = (path / normalized).resolve()
+        if not target.is_relative_to(path.resolve()) or target.is_dir():
+            raise ValueError("Commit scope must contain files within the assigned checkout")
+        if not target.is_file():
+            tracked = set(git(path, "ls-files", "-z", "--", normalized).split("\0"))
+            if normalized not in tracked:
+                raise ValueError(f"Commit file does not exist and is not tracked: {normalized}")
+        allowed.add(normalized)
+    return allowed
+
+
+def check_index_scope(path, allowed):
+    # Include both rename endpoints; do not clear or repair someone else's index.
+    staged = {name for name in git(path, "diff", "--cached", "--name-only", "--no-renames", "-z").split("\0") if name}
+    outside = staged - allowed
+    if outside:
+        raise ValueError("Refuse out-of-scope staged files: " + ", ".join(sorted(outside)))
+
+
+def commit_files(path, names, title):
+    if not title:
+        raise ValueError("Explicit title is required")
+    allowed = explicit_files(path, names)
+    check_index_scope(path, allowed)
+    git(path, "add", "--", *sorted(allowed))
+    check_index_scope(path, allowed)
+    git(path, "diff", "--cached", "--check")
+    git(path, "diff", "--cached", "--stat")
+    git(path, "commit", "-m", title)
+    return git(path, "rev-parse", "HEAD")
 
 
 def main():
@@ -50,17 +93,7 @@ def main():
             raise ValueError("Refuse to replace an existing worktree directory")
         git(ROOT, "worktree", "add", "-b", args.branch, str(target), args.ref)
     elif args.action == "commit":
-        for name in args.files or []:
-            target = (path / name).resolve()
-            if not target.is_relative_to(path):
-                raise ValueError("Commit file lies outside assigned checkout")
-        if not args.files or not args.title:
-            raise ValueError("Explicit files and title are required")
-        git(path, "add", "--", *args.files)
-        git(path, "diff", "--cached", "--check")
-        git(path, "diff", "--cached", "--stat")
-        git(path, "commit", "-m", args.title)
-        git(path, "rev-parse", "HEAD")
+        commit_files(path, args.files, args.title)
     elif args.action in {"fetch", "push", "update-main"}:
         url = git(path, "remote", "get-url", "origin")
         if url.rstrip("/").removesuffix(".git") != REMOTE.removesuffix(".git"):
