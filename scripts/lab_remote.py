@@ -1,6 +1,7 @@
 """Coordinator CLI for this one public synthetic repository; never handles tokens."""
 import argparse
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -10,7 +11,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def run(args):
-    result = subprocess.run(["gh", *args], cwd=ROOT, text=True, capture_output=True, encoding="utf-8")
+    environment = os.environ.copy()
+    environment.update({"GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "safe.directory", "GIT_CONFIG_VALUE_0": ROOT.as_posix()})
+    result = subprocess.run(["gh", *args], cwd=ROOT, env=environment, text=True, capture_output=True, encoding="utf-8")
     # Only public repository output is requested. Authentication/token commands
     # are deliberately not exposed by this coordinator.
     print(result.stdout[:12000], end="")
@@ -28,7 +31,7 @@ def body_file(value):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=["create", "pins", "issue", "pr", "edit-pr", "checks", "view-pr", "protect", "protection", "merge", "update", "comment", "close", "view-issue", "runs"])
+    parser.add_argument("action", choices=["create", "repo", "pins", "issue", "pr", "edit-pr", "checks", "view-pr", "protect", "protection", "merge", "update", "comment", "close", "view-issue", "runs"])
     parser.add_argument("--number", type=int)
     parser.add_argument("--title")
     parser.add_argument("--body-file")
@@ -38,6 +41,8 @@ def main():
     args = parser.parse_args()
     if args.action == "create":
         return run(["repo", "create", REPO, "--public", "--description", "Synthetic FlowGate multi-agent collaboration/worktree/CI validation lab; not application code", "--source", str(ROOT), "--remote", "origin", "--push"])
+    if args.action == "repo":
+        return run(["repo", "view", REPO, "--json", "nameWithOwner,url,isPrivate,defaultBranchRef"])
     if args.action == "pins":
         for action, version in [("checkout", "v7"), ("setup-python", "v6")]:
             code = run(["api", f"repos/actions/{action}/commits/{version}", "--jq", f'"{action}=" + .sha'])
