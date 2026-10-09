@@ -1,5 +1,9 @@
 # Collaboration experiment plan
 
+The executed observations are recorded in [results.md](results.md) and
+[observations.json](observations.json). The cases below retain their original plan
+status; consult the results for what was actually exercised and its limitations.
+
 This plan tests the collaboration contract with synthetic code, identities and
 issues. It is not FlowGate production or team-adoption evidence. Case outcomes below
 are planned until the coordinator records actual observations and evidence.

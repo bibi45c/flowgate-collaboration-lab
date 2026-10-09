@@ -9,3 +9,6 @@ Runtime: Python 3.13, standard library only. Run `python -m unittest discover -s
 The intentionally limited access and accounting examples provide tasks for agents.
 Passing these examples does not establish FlowGate security or compatibility.
 See `CONTRIBUTING.md`, `AGENTS.md` and `docs/experiment.md` for the experiment.
+
+Read [the executed results and remaining limits](docs/results.md) for real Issue/PR,
+CI, adversarial review, worktree recovery and integration evidence.
