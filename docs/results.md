@@ -7,9 +7,10 @@ in Singapore. It is an experiment, not formal FlowGate policy or production proo
 The final delivered code baseline before this report is
 `2604ff57aa9b06f27d5d8957a55fd0ccb9dbd9b9`: **59 local tests passed**.
 [Structured observations](observations.json) record actual heads, merged flags,
-merge SHAs, issue closure reasons and check URLs. The final protection readback is
-recorded in this report PR's timeline after integration; configuration is a dated
-observation, not an immutable guarantee.
+merge SHAs, issue closure reasons and check URLs. Final protection restoration and
+readback are pending at this report snapshot. After integration, the coordinator
+will attach the actual readback to this report PR's timeline; that dated attestation
+establishes the observed closing settings, not an immutable guarantee.
 
 ## What was actually run
 
