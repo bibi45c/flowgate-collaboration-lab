@@ -1,0 +1,134 @@
+{
+  "scope": "synthetic agent-only experiment; not formal policy or production evidence",
+  "code_snapshot": {
+    "issues": {
+      "1": {
+        "state": "closed",
+        "reason": "completed",
+        "url": "https://github.com/bibi45c/flowgate-collaboration-lab/issues/1"
+      },
+      "2": {
+        "state": "closed",
+        "reason": "completed",
+        "url": "https://github.com/bibi45c/flowgate-collaboration-lab/issues/2"
+      },
+      "3": {
+        "state": "closed",
+        "reason": "not_planned",
+        "url": "https://github.com/bibi45c/flowgate-collaboration-lab/issues/3"
+      },
+      "6": {
+        "state": "closed",
+        "reason": "completed",
+        "url": "https://github.com/bibi45c/flowgate-collaboration-lab/issues/6"
+      },
+      "10": {
+        "state": "closed",
+        "reason": "not_planned",
+        "url": "https://github.com/bibi45c/flowgate-collaboration-lab/issues/10"
+      }
+    },
+    "prs": {
+      "4": {
+        "state": "closed",
+        "merged": true,
+        "head": "70ef51d3cca4f0889f6075bd6f8e375e4ad99688",
+        "merge": "7ff9585fff1a6d4e526bea81b30f848d321288a3",
+        "url": "https://github.com/bibi45c/flowgate-collaboration-lab/pull/4"
+      },
+      "5": {
+        "state": "closed",
+        "merged": true,
+        "head": "cb38b9ab9fdd90a76da5f89aee586609eb5b3247",
+        "merge": "609059de9bb0113f9291d00793a8e79756e03951",
+        "url": "https://github.com/bibi45c/flowgate-collaboration-lab/pull/5"
+      },
+      "7": {
+        "state": "closed",
+        "merged": false,
+        "head": "8bc27c86350b4f42fb5f9bc0f45d3779fa827a90",
+        "merge": null,
+        "url": "https://github.com/bibi45c/flowgate-collaboration-lab/pull/7",
+        "candidate_returned_by_rest": "476c57159b8194f5583bf1f7e56cf7ee4cc74bc8"
+      },
+      "8": {
+        "state": "closed",
+        "merged": true,
+        "head": "87b7b6b132bb39c9d1b0ab906a70bfacf53c36e4",
+        "merge": "e00040f27bdbf7b4d518cf164535888d6594b778",
+        "url": "https://github.com/bibi45c/flowgate-collaboration-lab/pull/8"
+      },
+      "9": {
+        "state": "closed",
+        "merged": true,
+        "head": "2e2b14e53fdda3fe3eb6ea55fe2f68f389ea5ae1",
+        "merge": "2604ff57aa9b06f27d5d8957a55fd0ccb9dbd9b9",
+        "url": "https://github.com/bibi45c/flowgate-collaboration-lab/pull/9"
+      }
+    },
+    "main": "2604ff57aa9b06f27d5d8957a55fd0ccb9dbd9b9"
+  },
+  "governance_merge_phase": {
+    "head": "87b7b6b132bb39c9d1b0ab906a70bfacf53c36e4",
+    "merge": "e00040f27bdbf7b4d518cf164535888d6594b778",
+    "checks": [
+      {
+        "bucket": "pass",
+        "link": "https://github.com/bibi45c/flowgate-collaboration-lab/actions/runs/37807670386/job/113416200700",
+        "name": "Quality"
+      },
+      {
+        "bucket": "pass",
+        "link": "https://github.com/bibi45c/flowgate-collaboration-lab/actions/runs/37807670386/job/113416091134",
+        "name": "PR metadata"
+      },
+      {
+        "bucket": "pass",
+        "link": "https://github.com/bibi45c/flowgate-collaboration-lab/actions/runs/37807670386/job/113416090780",
+        "name": "Unit tests"
+      }
+    ],
+    "tests": "----------------------------------------------------------------------\nRan 58 tests in 5.227s\n\nOK",
+    "reviewed_governance": "dd65536c6f74ff0819c602ef4c92e1dd126265d1",
+    "issue6": "open awaiting updated-base guard exercise"
+  },
+  "access_acceptance": {
+    "head": "cb38b9ab9fdd90a76da5f89aee586609eb5b3247",
+    "merge": "609059de9bb0113f9291d00793a8e79756e03951",
+    "ci": 37806572686,
+    "smoke": {
+      "matching_active": true,
+      "revoked": false,
+      "wrong_tenant": false
+    },
+    "tests": 28,
+    "issue": "closed",
+    "state_reason": "completed"
+  },
+  "complete_stage2": {
+    "head": "2e2b14e53fdda3fe3eb6ea55fe2f68f389ea5ae1",
+    "base": "e00040f27bdbf7b4d518cf164535888d6594b778",
+    "merge": "2604ff57aa9b06f27d5d8957a55fd0ccb9dbd9b9",
+    "checks": [
+      {
+        "bucket": "pass",
+        "link": "https://github.com/bibi45c/flowgate-collaboration-lab/actions/runs/37809030604/job/113420860782",
+        "name": "Quality"
+      },
+      {
+        "bucket": "pass",
+        "link": "https://github.com/bibi45c/flowgate-collaboration-lab/actions/runs/37809030604/job/113420766125",
+        "name": "Unit tests"
+      },
+      {
+        "bucket": "pass",
+        "link": "https://github.com/bibi45c/flowgate-collaboration-lab/actions/runs/37809030604/job/113420766834",
+        "name": "PR metadata"
+      }
+    ],
+    "tests": "----------------------------------------------------------------------\nRan 59 tests in 4.919s\n\nOK",
+    "issue1": "closed",
+    "reason": "completed"
+  },
+  "final_protection_attestation": "See the final report PR timeline after integration; human approval=1, CODEOWNERS, strict Quality, admins enforced, conversations resolved, no force/deletion are required closing settings."
+}
