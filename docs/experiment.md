@@ -84,3 +84,34 @@ At this snapshot, experimental integration, protection restoration and post-merg
 acceptance have not run. Subsequent actual results belong in Issue #12; a controlled
 agent-only merge must retain Quality/strict/admin/conversation gates, restore the
 original human-review setting, and remain labelled as an experiment.
+## Deterministic issue reminders: pre-integration snapshot
+
+Issue [#14](https://github.com/bibi45c/flowgate-collaboration-lab/issues/14) and
+PR [#15](https://github.com/bibi45c/flowgate-collaboration-lab/pull/15) track the
+minimal format-only experiment. The runtime adds one workflow and one Python
+script; one additional test file verifies its behavior. There is no AI, label/state
+automation or PR gate. Existing issue forms supply required fields, and
+CONTRIBUTING.md supplies the permitted title areas.
+
+Local evidence on implementation commit
+`ab8ae60ebf3dc3dad32e300b685faaf9c7312173`, against main
+`339330962692d858b7e950438ad91b86b1625649`, using Python 3.13.5:
+
+| Check | Observed result |
+|---|---|
+| Focused issue-format tests | 17 passed |
+| Full unittest suite | 79 passed |
+| Complete task, bug and design forms | Accepted |
+| Missing, empty, placeholder or duplicate required sections | Reported |
+| Unknown title area | Reported after an independently reproduced correction |
+| Entire verification plan set to None | Reported; only the post-merge step may be absent |
+| HTML comment opener inside a code fence | Preserved as reproduction data |
+| Fake API comment creation, repair and repeat | Same bot-comment ID; repeat performs no write |
+
+This snapshot records local results, not live GitHub issue-event acceptance.
+The workflow must be on the default branch before those events can run. Issue #14
+will hold actual opened/edited run links, bot-comment IDs and protection readbacks.
+Any single-account lab merge remains experimental, not non-author human approval.
+The checker validates format, not requirement quality or implementation authority.
+Its dependency-free form reader supports the current simple YAML layout and fails
+visibly for unsupported layouts. Feedback is advisory, not an atomic snapshot gate.
