@@ -57,23 +57,41 @@ def requirements(path):
             raise ValueError(f"Unsupported form validation: {name}")
         if required and required[1] == "true":
             description = re.search(r"^      description: (.+)$", block, re.M)
-            fields[name] = bool(description and re.search(r"\bNone\b", scalar(description[1])))
+            fields[name] = bool(description and re.search(r"\bor None\b", scalar(description[1])))
     if not fields:
         raise ValueError(f"No required fields: {path.name}")
     return fields
 
 
 def sections(body):
-    body = re.sub(r"<!--[\s\S]*?-->", "", body or "")
     result, duplicates = {}, set()
-    current, fence = None, None
-    for line in body.splitlines():
+    current, fence, in_comment = None, None, False
+    for line in (body or "").splitlines():
+        if fence:
+            if current:
+                result[current].append(line)
+            if re.fullmatch(r" {0,3}" + re.escape(fence[0]) + "{" + str(len(fence)) + r",}\s*", line):
+                fence = None
+            continue
+        # HTML comments are hidden outside code fences; inside fences they are data.
+        visible = []
+        while line:
+            if in_comment:
+                end = line.find("-->")
+                if end < 0:
+                    break
+                line, in_comment = line[end + 3:], False
+            else:
+                start = line.find("<!--")
+                if start < 0:
+                    visible.append(line)
+                    break
+                visible.append(line[:start])
+                line, in_comment = line[start + 4:], True
+        line = "".join(visible)
         opening = re.match(r"^ {0,3}(`{3,}|~{3,})", line)
         if opening:
-            if fence is None:
-                fence = opening[1]
-            elif re.fullmatch(r" {0,3}" + re.escape(fence[0]) + "{" + str(len(fence)) + r",}\s*", line):
-                fence = None
+            fence = opening[1]
         heading = None if fence is not None or opening else re.match(r"^#{2,3} (.+?)\s*$", line)
         if heading:
             current = heading[1]
@@ -89,8 +107,16 @@ def validate(title, body, forms=FORMS):
     match = TITLE.fullmatch(title)
     if not match or not (forms / f"{match[1]}.yml").is_file() or match[1] == "config":
         return ["Title: Use [task|bug|design][area] followed by a concrete outcome."]
+    contract = (ROOT / "CONTRIBUTING.md").read_text(encoding="utf-8-sig")
+    area_section = re.search(r"\bareas(?: are|:)\s+([^.]*)\.", contract)
+    if not area_section:
+        raise ValueError("Cannot read the issue areas from CONTRIBUTING.md")
+    areas = {area.strip() for group in re.findall(r"`([^`]+)`", area_section[1])
+             for area in group.split(",")}
     fields, duplicates = sections(body)
     errors = []
+    if match[2] not in areas:
+        errors.append("Title: Use an area listed in CONTRIBUTING.md: " + ", ".join(sorted(areas)) + ".")
     for name, allows_none in requirements(forms / f"{match[1]}.yml").items():
         if name in duplicates:
             errors.append(f"{name}: Keep one section with this name.")

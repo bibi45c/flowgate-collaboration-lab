@@ -23,6 +23,9 @@ class IssueFormatTests(unittest.TestCase):
             with self.subTest(title=title):
                 self.assertIn("Title:", validate(title, valid_body())[0])
 
+    def test_unknown_area_is_rejected(self):
+        self.assertIn("Title:", validate("[task][banana] Verify reminder", valid_body())[0])
+
     def test_missing_empty_and_placeholder_fields(self):
         for value in (None, "", "_No response_", "TODO", "<!-- pending -->", "<fill this in>"):
             body = valid_body().replace("### Verification plan\n\nSynthetic evidence for this field.",
@@ -38,10 +41,28 @@ class IssueFormatTests(unittest.TestCase):
         body = body.replace("### Outcome\n\nSynthetic evidence for this field.", "### Outcome\n\nNone")
         self.assertTrue(any(item.startswith("Outcome:") for item in validate("[task][lab] Verify reminder", body)))
 
+    def test_none_for_post_merge_does_not_remove_the_entire_verification_plan(self):
+        for value in ("None", "N/A", "Not applicable"):
+            body = valid_body().replace("### Verification plan\n\nSynthetic evidence for this field.",
+                                        "### Verification plan\n\n" + value)
+            with self.subTest(value=value):
+                self.assertTrue(any(item.startswith("Verification plan:")
+                                    for item in validate("[task][lab] Verify reminder", body)))
+
     def test_code_reproduction_is_content_not_a_fake_heading(self):
         body = valid_body("bug").replace("### Reproduction and environment\n\nSynthetic evidence for this field.",
                 "### Reproduction and environment\n\n```text\n### Not a real section\nreproduce()\n```")
         self.assertEqual([], validate("[bug][lab] Reproduce synthetic failure", body))
+
+    def test_html_comment_inside_code_does_not_hide_following_fields(self):
+        body = valid_body("bug").replace("### Reproduction and environment\n\nSynthetic evidence for this field.",
+                "### Reproduction and environment\n\n```html\n<!--\n```")
+        self.assertEqual([], validate("[bug][lab] Reproduce synthetic failure", body + "\n<!-- note -->"))
+
+    def test_commented_out_section_does_not_satisfy_a_required_field(self):
+        body = valid_body().replace("### Outcome\n\nSynthetic evidence for this field.",
+                                    "<!--\n### Outcome\nFake outcome\n-->")
+        self.assertTrue(any(item.startswith("Outcome:") for item in validate("[task][lab] Verify reminder", body)))
 
     def test_duplicate_sections_are_not_silently_accepted(self):
         errors = validate("[task][lab] Verify reminder", valid_body() + "\n\n### Outcome\nOther outcome")
